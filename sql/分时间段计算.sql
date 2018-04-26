@@ -1,0 +1,1 @@
+select count(id),sq from `分段` group by sq;

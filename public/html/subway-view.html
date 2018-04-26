@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <!--重要meta, 必须!-->
+    <meta name="viewport" content="width=320, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0,shrink-to-fit=no" />
+    <title>带时间参数动画</title>
+    <style>
+        #mybox {
+            width: 100%;
+            height: 100%;
+        }
+
+        .fixed {
+            position: fixed;
+            margin: 0 auto;
+            width: 600px;
+            top: 50px;
+            z-index: 10;
+            left: 50%;
+            transform: translate(-50%, 0);
+        }
+
+        .circle {
+            border-radius: 50%;
+            height: 32px;
+            width: 32px;
+            font-size: 10px;
+            text-align: center;
+            vertical-align: middle;
+            line-height: 32px;
+            font-size-adjust: unset;
+            margin-bottom: 10px;
+            z-index: -1;
+        }
+
+        .station-name {
+            position: relative;
+            z-index: 100;
+        }
+    </style>
+    <script src="../js/echarts.js"></script>
+</head>
+
+<body>
+    <div id="mybox"></div>
+    <div class="fixed">
+        <h1 class="title">当前时间:
+            <span class="time">7</span>
+        </h1>
+        <button class="start">启动动画</button>
+        <button class="stop">暂停动画</button>
+    </div>
+    <script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.js"></script>
+    <script src="http://webapi.amap.com/subway?v=1.0&key=123333&callback=cbk"></script>
+    <script type="text/javascript">
+        var markers = [];
+        var temp_time=7;
+        window.cbk = function () {
+            window.mySubway = subway("mybox", {
+                adcode: 4403,
+                theme: "colorful",
+                client: 0,
+                doubleclick: {
+                    switch: true
+                }
+            });
+            //地铁加载完成，执行complete事件
+            mySubway.event.on("subway.complete", function (ev, info) {
+                var id = info.id;
+                mySubway.scale(1);
+                var stations = Array.from(document.querySelector('#g-station-name-normal').getElementsByTagName(
+                    "text"));
+
+                function delay(time) {
+                    temp_time=time;
+                    window.t = setTimeout(() => {
+                        if (time > 24) {
+                            return;
+                        }
+                        get_marker.bind({
+                            time: time
+                        })();
+                        console.log(time);
+                        $(".title .time").html(time);
+                        delay(++time);
+                    }, 1000);
+                }
+
+                $(".start").on("click",function(e){
+                    delay(temp_time);
+                })
+                $(".stop").on("click",function(e){
+                    clearTimeout(window.t);
+                })
+            });
+            mySubway.event.on("station.touch", function (ev, info) {
+                console.log(1);
+            });
+            mySubway.event.on("stationName.touch", function (ev, info) {
+                console.log(1);
+            });
+
+            mySubway.event.on("subway.zoom", function (ev, info) {
+                var id = info.id;
+            });
+
+            //点击线路名，高亮此线路
+            mySubway.event.on("lineName.touch", function (ev, info) {
+
+            });
+
+        };
+
+        function get_marker(e) {
+            $.ajax({
+                contentType: "application/json",
+                data: JSON.stringify({
+                    time: this.time
+                }),
+                type: "POST",
+                url: "/api/all_station",
+                success: function (data) {
+                    let temp_arr = JSON.parse(data);
+                    for (var i = 0; i < temp_arr.length; i++) {
+                        var div1 = document.createElement('div');
+                        div1.className = 'circle';
+                        var r1 = Math.floor(temp_arr[i].count_id1 / 8);
+                        div1.style.backgroundColor = 'rgb(' + r1 * 8 + ',100,255)';
+                        div1.innerHTML = temp_arr[i].count_id1 || 0;
+                        var div2 = document.createElement('div');
+                        div2.className = 'circle';
+                        var r2 = Math.floor(temp_arr[i].count_id2 / 8);
+                        div2.style.backgroundColor = 'rgb(' + r2 * 8 + ',100,255)';
+                        div2.innerHTML = temp_arr[i].count_id2 || 0;
+                        div1.dataset.location = temp_arr[i].location.split("站").join("");
+                        div2.dataset.location = div1.dataset.location;
+                        mySubway.addMarker(temp_arr[i].location.split("站").join(""), {
+                            cnt: div1.outerHTML + div2.outerHTML,
+                            title: temp_arr[i].location,
+                            offset: {
+                                x: 0,
+                                y: 0
+                            },
+
+                        });
+                        $('.circle').on("click", function (e) {
+                            mySubway.addInfoWindow(e.currentTarget.dataset.location)
+
+                        })
+
+                    }
+
+                }
+            })
+
+        }
+    </script>
+</body>
+
+</html>

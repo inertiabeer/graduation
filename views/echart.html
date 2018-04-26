@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>浮生一日</title>
+    <script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.js"></script>
+    <script src="/js/echarts.js"></script>
+    <script src="/js/province/guangdong.js"></script>
+    <style>
+        html,
+        body {
+            height: 100%;
+        }
+
+        #app {
+            width: 100%;
+            height: 100%;
+        }
+ .tool_bar{
+     height: 100px;
+ }
+    </style>
+</head>
+
+<body>
+    <div class="tool_bar">
+        <label for="samp">采样数:</label>
+        <input id="samp" type="text" value="10">
+        <span>最好是大于十的整数</span>
+        <button class="get_data">获取数据</button>
+        <button class="toggle_station">隐藏站点名称</button>
+    </div>
+    <div id="app"></div>
+    <script>
+        var option={
+                    title: {
+                        text: '深圳市地铁出行数据',
+                        left: 'center',
+                        textStyle: {
+                            color: '#eee'
+                        }
+                    },
+                    backgroundColor: '#003',
+                    geo: {
+                        map: '广东',
+                        center: [114.109947, 22.657],
+                        zoom: 10,
+                        left: 0,
+                        right: 0,
+                        silent: true,
+                        roam: true,
+                        itemStyle: {
+                            normal: {
+                                borderColor: '#003',
+                                color: '#005'
+                            }
+                        }
+                    },
+                    series: []
+                }
+        $('.get_data').on("click",function(e){
+             myChart.showLoading();
+             get_stations();
+        });
+        $(".toggle_station").on("click",function(e){
+           console.log(option.series.splice(1,1));
+           console.log(option.series);
+            myChart.setOption(option,true);
+            
+
+        })
+        var myChart = echarts.init(document.getElementById('app'));
+        myChart.setOption(option);
+
+        function get_stations(){
+            $.post('/api/stations',{},function(data){
+                data=JSON.parse(data);
+                console.log(data.length);
+                get_lines(data);
+            })
+        }
+
+        function get_lines(stations) {
+            var samp=document.getElementById("samp").value;
+            console.log(samp);
+            $.post('/api/lines', {
+                samp: samp
+            }, function (data) {
+                data = JSON.parse(data);
+                var routes = data.map(function (item) {
+                    return [JSON.parse(item.lnglat1), JSON.parse(item.lnglat2)];
+                });
+                s_locations=stations.map(function(item){
+                    return JSON.parse(item.lnglat);
+                });
+                myChart.hideLoading();
+                option.series=[];
+                option.series.push({
+                        type: 'lines',
+                        coordinateSystem: 'geo',
+                        data: routes,
+                        large: true,
+                        largeThreshold: 5000,
+                        lineStyle: {
+                            normal: {
+                                opacity: 0.05,
+                                width: 0.5,
+                                curveness: 0.3
+                            }
+                        },
+                        // 设置混合模式为叠加
+                        blendMode: 'lighter'
+                    });
+                    if(stations)
+                    {
+                     option.series.push({
+                        type: 'effectScatter',
+                        coordinateSystem: 'geo',
+                        data: s_locations,
+                        hoverAnimation: true,
+                        legendHoverLink: true,
+                        zlevel:10,
+                        color:"#fff",
+                        symbol: "circle",
+                        label: {
+                            show:true,
+                            color:"auto",
+                            position:"right",
+                            formatter:function(p){
+                                return stations[p.dataIndex].name_location;
+                            }
+                        }
+
+
+
+                    });
+
+                    }
+
+                myChart.setOption(option,true);
+            });
+        }
+    </script>
+</body>
+
+</html>

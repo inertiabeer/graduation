@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>浮生一日</title>
+    <script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.js"></script>
+    <script src="/js/echarts.js"></script>
+    <script src="/js/province/guangdong.js"></script>
+    <style>
+        html,
+        body {
+            height: 100%;
+        }
+
+        #app {
+            width: 100%;
+            height: 100%;
+        }
+
+        .tool_bar {
+            height: 100px;
+            position: fixed;
+            z-index: 10;
+        }
+
+        .fixed {
+            position: fixed;
+            margin: 0 auto;
+            width: 600px;
+            top: 50px;
+            z-index: 10;
+            left: 50%;
+            transform: translate(-50%, 0);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="tool_bar">
+        <button class="get_data">获取线数据</button>
+        <button class="toggle_station">隐藏站点名称</button>
+    </div>
+    <div class="fixed">
+        <h1 class="title">当前时间:
+            <span class="time">7</span>
+        </h1>
+        <button class="start">启动动画</button>
+        <button class="stop">暂停动画</button>
+    </div>
+    <div id="app"></div>
+    <script>
+        var temp_time=7;
+        var option = {
+            backgroundColor: '#404a59',
+            title: {
+                text: '深圳市地铁出行数据',
+                subtext: "进站为黄色 出站为蓝色",
+                left: 'center',
+                textStyle: {
+                    color: '#eee'
+                }
+            },
+            tooltip: {
+                trigger: 'item',
+                formatter:function(p){
+                    console.log(p);
+                    return `进站人数${p.data.count_id1} 出站人数${p.data.count_id2}`
+
+                }
+            },
+            legend: {
+                type: "scroll",
+                orient: "vertical",
+                formatter: '{name}',
+                left: 20,
+                textStyle: {
+                    color: "white"
+                },
+                pageIconColor: "white",
+                pageTextStyle: {
+                    color: "white"
+                }
+            },
+            geo: {
+                map: '广东',
+                center: [114.109947, 22.657],
+                zoom: 10,
+                left: 0,
+                right: 0,
+                silent: true,
+                roam: true,
+                itemStyle: {
+                    normal: {
+                        areaColor: '#323c48',
+                        borderColor: '#111'
+                    },
+                    emphasis: {
+                        areaColor: '#2a333d'
+                    }
+                }
+            },
+            series: []
+        }
+        $('.get_data').on("click", function (e) {
+            // myChart.showLoading();
+            get_lines();
+        });
+        $(".toggle_station").on("click", function (e) {
+            console.log(option.series.splice(1, 1));
+            console.log(option.series);
+            myChart.setOption(option, true);
+
+
+        })
+        window.myChart = echarts.init(document.getElementById('app'));
+        myChart.setOption(option);
+//进行时间递归
+        function delay(time) {
+            temp_time = time;
+            window.t = setTimeout(() => {
+                if (time > 24) {
+                    return;
+                }
+                get_stations(time);
+                console.log(time);
+                $(".title .time").html(time);
+                delay(++time);
+            }, 1000);
+        }
+
+        $(".start").on("click", function (e) {
+            delay(temp_time);
+        })
+        $(".stop").on("click", function (e) {
+            clearTimeout(window.t);
+        })
+
+        function get_stations(time) {
+            $.post('/api/all_station', {
+                time: time
+            }, function (data) {
+                stations = JSON.parse(data);
+                option.series=[];
+                if (stations) {
+                    let data_array = [
+                        [],
+                        []
+                    ];
+                    for (var i = 0; i <
+                        stations.length; i++) {
+                        let t = stations[i];
+                        count = t.count_id1 - t.count_id2;
+                        t.name = t.location;
+                        t.value = JSON.parse(t.lnglat).concat(count);
+                        if (count > 0) {
+                            data_array[0].push(t);
+                        } else {
+                            data_array[1].push(t);
+                        }
+                    }
+                    console.log(data_array);
+                    for (var j = 0; j <
+                        data_array.length; j++) {
+                        let color = "#f4e925";
+                        let name="进站大于出站"
+                        if (j == 1) {
+                            color = "cyan";
+                            name:"出站大于进站"
+                        }
+                        option.series.push({
+                            name:name,
+                            type: 'effectScatter',
+                            coordinateSystem: 'geo',
+                            data: data_array[j],
+                            symbolSize: function (val) {
+                                return val[2] / 10;
+                            },
+                            showEffectOn: 'render',
+                            rippleEffect: {
+                                brushType: 'stroke'
+                            },
+                            hoverAnimation: true,
+                            legendHoverLink: true,
+                            zlevel: 10,
+                            color: "#fff",
+                            symbol: "circle",
+                            itemStyle: {
+                                normal: {
+                                    color: color,
+                                    shadowBlur: 10,
+                                    shadowColor: '#333'
+                                }
+                            },
+                            label: {
+                                normal: {
+                                    formatter: '{b}',
+                                    position: 'right',
+                                    show: true
+                                }
+                            }
+                        });
+                    }
+                }
+                //这里去获取线数据
+                myChart.hideLoading();
+                myChart.setOption(option, true);
+            })
+        }
+
+        function get_lines(stations) {
+
+            $.post('/api/station_od', {}, function (data) {
+                data = JSON.parse(data);
+                //这里需要调整
+                for (var i = 0; i < data.length; i++) {
+                    let routes = data[i].map(function (item) {
+                        return [JSON.parse(item.lnglat1), JSON.parse(item.lnglat2)];
+                    });
+                    option.series.push({
+                        type: 'lines',
+                        coordinateSystem: 'geo',
+                        data: routes,
+                        name: data[i][0].location1,
+                        large: true,
+                        largeThreshold: 200,
+                        lineStyle: {
+                            normal: {
+                                opacity: 0.05,
+                                width: 0.5,
+                                curveness: 0.3,
+                            }
+                        },
+                        // 设置混合模式为叠加
+                        blendMode: 'lighter'
+                    });
+                }
+
+
+
+                myChart.setOption(option, true);
+            });
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <!--重要meta, 必须!-->
+    <meta name="viewport" content="width=320, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0,shrink-to-fit=no" />
+    <title>折线图</title>
+    <style>
+        #mybox {
+            width: 100%;
+            height: 100%;
+        }
+        .container{
+            height: 400px;
+            width: 800px;
+            position: fixed !important;
+            z-index: 100;
+            display: none;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .chart {
+            height: 400px;
+            width: 800px;
+            position: absolute;
+            background-color: white;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .close {
+            width: 50px;
+            position: absolute;
+            top: 0px;
+            right: 0px;
+            z-index: 100;
+            height: 50px;
+            background-color: white;
+            box-shadow: white 5px 5px 10px;
+
+        }
+
+        .close img {
+            max-height: 100%;
+            max-width: 100%;
+        }
+
+        .show {
+            display: block;
+        }
+    </style>
+    <script src="../js/echarts.js"></script>
+</head>
+
+<body>
+    <div id="mybox"></div>
+    <div class="container">
+        <div id="chart" class="chart">
+        </div>
+        <div class="close">
+            <img src="/img/close.png" alt="">
+        </div>
+    </div>
+    <script src="http://webapi.amap.com/subway?v=1.0&key=123333&callback=cbk"></script>
+    <script type="text/javascript">
+        var markers = [];
+        window.cbk = function () {
+            var mySubway = subway("mybox", {
+                adcode: 4403,
+                theme: "colorful",
+                client: 0,
+                doubleclick: {
+                    switch: true
+                }
+            });
+
+            //地铁加载完成，执行complete事件
+            mySubway.event.on("subway.complete", function (ev, info) {
+                var id = info.id;
+            });
+            //data 默认json格式
+            function ajax(obj) {
+                var req = new XMLHttpRequest();
+                req.onreadystatechange = function () {
+                    if (req.readyState == 4 && req.status == 200) {
+                        if (obj.callback) {
+                            obj.callback(req.responseText);
+                        }
+                    }
+                };
+                req.open(`${obj.method}`, `${obj.url}`, true);
+                req.setRequestHeader("Content-type", "application/json");
+                req.send(JSON.stringify(
+                    obj.data
+                ));
+
+
+            }
+
+            function set_chart(dom, name) {
+                var dom = document.querySelector(dom);
+                dom.classList.add('show');
+                window.myChart = echarts.init(dom);
+                var app = {};
+                myChart.showLoading();
+                ajax({
+                    method: "POST",
+                    url: "/api/timeline",
+                    data: {
+                        name: name
+                    },
+                    callback: function (data) {
+                        myChart.hideLoading();
+                        var data = JSON.parse(data);
+                        var option = get_option(name, data);
+
+                        if (option && typeof option === "object") {
+                            myChart.setOption(option, true);
+                        }
+                    }
+                })
+
+
+
+
+            };
+
+            function get_option(name, data) {
+                var option = null;
+                return option = {
+                    title: {
+                        text: name + " 进出站人数统计",
+                        subtext: "出入人次=出站+进站"
+                    },
+                    toolbox: {
+                        show: true,
+                        orient: 'horizontal'
+                    },
+                    tooltip: {
+                        trigger: 'axis'
+                    },
+                    legend: {
+                        data: ['进站量', '出站量', '出入人次'],
+                        selected: {
+                            '进站量': true,
+                            '出站量': true,
+                            '出入人次': false
+                        }
+                    },
+                    grid: {
+                        left: '3%',
+                        right: '4%',
+                        bottom: '3%',
+                        containLabel: true
+                    },
+                    toolbox: {
+                        feature: {
+                            saveAsImage: {}
+                        }
+                    },
+                    xAxis: {
+                        type: 'category',
+                        boundaryGap: false,
+                        data: data[0] //这里放时间线数据
+                    },
+                    yAxis: {
+                        type: 'value'
+                    },
+                    series: [{
+                            name: '进站量',
+                            type: 'line',
+                            stack: null,
+                            data: data[1],
+                            markPoint: {
+                                data: [{
+                                        type: 'max',
+                                        name: '最大值'
+                                    },
+                                    {
+                                        type: 'min',
+                                        name: '最小值'
+                                    }
+                                ]
+                            },
+                            markLine: {
+                                data: [{
+                                    type: 'average',
+                                    name: '平均值'
+                                }]
+                            }
+                        },
+                        {
+                            name: '出站量',
+                            type: 'line',
+                            stack: null,
+                            data: data[2],
+                            markPoint: {
+                                data: [{
+                                    type: 'max',
+                                    name: '最大值'
+                                }, {
+                                    type: 'min',
+                                    name: '最小值'
+                                }]
+                            },
+                            markLine: {
+                                data: [{
+                                    type: 'average',
+                                    name: '平均值'
+                                }]
+                            }
+                        },
+                        {
+                            name: '出入人次',
+                            type: 'line',
+                            stack: null,
+                            data: data[3],
+                            markPoint: {
+                                data: [{
+                                    type: 'max',
+                                    name: '最大值'
+                                }, {
+                                    type: 'min',
+                                    name: '最小值'
+                                }]
+                            },
+                            markLine: {
+                                data: [{
+                                    type: 'average',
+                                    name: '平均值'
+                                }]
+                            }
+                        }
+                    ]
+                };
+
+            }
+
+            function get_name(e, info) {
+
+                var id = info.id;
+                var name = e._args.name;
+                let container = document.querySelector(".container");
+                container.classList.add('show');
+                set_chart("#chart", name);
+                while (markers.length > 0) {
+                    mySubway.clearMarker(markers[0]);
+                    markers.shift();
+                }
+                markers.push(id);
+                mySubway.addMarker(
+                    info.id, {
+
+                    }
+                );
+            };
+            document.querySelector('.close').addEventListener("click",function(e){
+                document.querySelector('.container').classList.remove('show');
+                myChart .dispose();
+
+            });
+            mySubway.event.on("station.touch", function (ev, info) {
+                get_name(ev, info);
+            });
+            mySubway.event.on("stationName.touch", function (ev, info) {
+
+                get_name(ev, info);
+            });
+
+            mySubway.event.on("subway.zoom", function (ev, info) {
+                var id = info.id;
+            });
+
+            //点击线路名，高亮此线路
+            mySubway.event.on("lineName.touch", function (ev, info) {
+                mySubway.showLine(info.id);
+                var center = mySubway.getSelectedLineCenter();
+                mySubway.setCenter(center);
+                while (markers.length > 0) {
+                    mySubway.clearMarker(markers[0]);
+                    markers.shift();
+                };
+                console.log(ev);
+                console.log(info);
+
+            });
+
+            //点击空白, 关闭infowindow
+            mySubway.event.on("subway.touch", function () {
+                mySubway.clearInfoWindow();
+            });
+
+            //设置起点
+            mySubway.event.on("startStation.touch", function (ev, info) {
+                mySubway.stopAnimation();
+                mySubway.clearInfoWindow();
+                mySubway.setStart(info.id, {});
+                startInfo = info;
+                route();
+            });
+
+            //设置终点
+            mySubway.event.on("endStation.touch", function (ev, info) {
+                mySubway.stopAnimation();
+                mySubway.clearInfoWindow();
+                mySubway.setEnd(info.id, {});
+                endInfo = info;
+                route();
+            });
+
+            //路线规划
+            var startInfo = {},
+                endInfo = {};
+
+            function route() {
+                if (startInfo.id && endInfo.id) {
+                    mySubway.route(startInfo.id, endInfo.id, {});
+                    startInfo = {};
+                    endInfo = {};
+                }
+            }
+        };
+    </script>
+</body>
+
+</html>

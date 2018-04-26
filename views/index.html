@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <!--重要meta, 必须!-->
+  <meta name="viewport" content="width=320, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0,shrink-to-fit=no" />
+  <title>浮生一日</title>
+<script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.js"></script>
+<script src="http://webapi.amap.com/loca?key=64c2d67445ddbb4801828d490d69e243&v"></script>
+<style>
+  body,html{
+    width: 100%;
+    height: 100%;
+  }
+  #map{
+    width: 100%;
+    height: 80%;
+  }
+</style>
+</head>
+
+<body>
+  <button class="get-data">加载数据</button>
+  <div id="map"></div>
+
+  <script type="text/javascript">
+    //jsonp传递数据
+    var loca = Loca.create('map', {
+      mapStyle: 'amap://styles/grey',
+      zoom: 11,
+      center: [114.085947, 22.547]
+    });
+    var layer = Loca.visualLayer({
+      container: loca,
+      blendMode: 'lighter',
+      type: 'line',
+      shape: 'line'
+    });
+    $(".get-data").on("click", function (e) {
+      $.ajax({
+        url: "/api/lines",
+        contentType: "application/json",
+        dataType: "json",
+        type: "POST",
+        data:JSON.stringify({
+          samp:200
+        }),
+        success: function (data) {
+          console.log(data.length);
+          var routes=data.map(item => {
+            return {
+              line:[JSON.parse(item.lnglat1),JSON.parse(item.lnglat2)]}
+            
+          });
+          console.log(routes[0].line);
+   
+             layer.setData(routes, {
+              lnglat: 'line'
+          });
+              layer.setOptions({
+            style: {
+              lineWidth: 0.3,
+              curveness: 0.2,
+              stroke: 'rgba(49, 80, 189, 0.2)'
+            }
+          });
+
+          layer.render();
+
+        }
+      })
+    })
+
+
+  </script>
+</body>
+
+</html>
